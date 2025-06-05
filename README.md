@@ -1,54 +1,21 @@
-# React + TypeScript + Vite
+## Issue
+`MSW` fails to intercept the requests from socket intstance of `socket.io`.
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+After taking a deep dive into `socket.io` and `msw`, I found that `socket.io` save a reference to `globalThis.WebSocket` [here](https://github.com/socketio/socket.io/blob/main/packages/engine.io-client/lib/transports/websocket.ts#L155) and `msw` overwrite `globalThis.WebSocket` with custom `WebSocketProxy` [here](https://github.com/mswjs/interceptors/blob/main/src/interceptors/WebSocket/index.ts#L157).
+So, the problem might be the execution order of the above two scripts.
 
-Currently, two official plugins are available:
+Then, I tried "**lazy loading**" `socket.io` to make `socket.io` execute after `msw`.
+```ts
+import { worker } from './mocks/browser';
+await worker.start();
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
-
-## Expanding the ESLint configuration
-
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
-
-```js
-export default tseslint.config({
-  extends: [
-    // Remove ...tseslint.configs.recommended and replace with this
-    ...tseslint.configs.recommendedTypeChecked,
-    // Alternatively, use this for stricter rules
-    ...tseslint.configs.strictTypeChecked,
-    // Optionally, add this for stylistic rules
-    ...tseslint.configs.stylisticTypeChecked,
-  ],
-  languageOptions: {
-    // other options...
-    parserOptions: {
-      project: ['./tsconfig.node.json', './tsconfig.app.json'],
-      tsconfigRootDir: import.meta.dirname,
-    },
-  },
-})
+const { io } = await import('socket.io-client');
+io('ws://localhost:3000', { transports: ['websocket'] });
 ```
+And it finally works.
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+## Start the dev server
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
-
-export default tseslint.config({
-  plugins: {
-    // Add the react-x and react-dom plugins
-    'react-x': reactX,
-    'react-dom': reactDom,
-  },
-  rules: {
-    // other rules...
-    // Enable its recommended typescript rules
-    ...reactX.configs['recommended-typescript'].rules,
-    ...reactDom.configs.recommended.rules,
-  },
-})
+```bash
+npm rum dev
 ```
